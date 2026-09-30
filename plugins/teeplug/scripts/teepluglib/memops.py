@@ -1,12 +1,10 @@
 """Entry operations on a memory store: every interface routes through these functions."""
 
 import contextlib
-import os
-from pathlib import Path
 
-from .memguard import (MAX_ENTRIES, MAX_ENTRY_CHARS, MAX_STORE_BYTES, MemoryRefusal,
+from .memguard import (MAX_ENTRIES, MAX_ENTRY_CHARS, MemoryRefusal,
                        normalize, validate_entry, validate_source)
-from .memory import STORE_VERSION, TARGETS, Store, locked, new_id, now, parse
+from .memory import STORE_VERSION, TARGETS, Store, locked, new_id, now
 
 
 def require_enabled(cfg, action):
@@ -166,62 +164,18 @@ def delete(cfg):
             'note': 'Memory is now disabled. Re-enabling requires memory setup.'}
 
 
-def import_entries(cfg, source_dir):
-    """Explicit validated migration. The source store is read only and never deleted."""
-    require_enabled(cfg, 'migration')
-    source = Path(source_dir).expanduser()
-    if not source.is_dir():
-        raise MemoryRefusal('not_found', f'No memory store directory at {source}.')
-    store = Store(cfg)
-    if Path(os.path.realpath(source)) == store.dir:
-        raise MemoryRefusal('invalid_request', 'The source and destination stores are the same directory.')
-    imported, skipped = {t: 0 for t in TARGETS}, {t: 0 for t in TARGETS}
-    with locked(store.dir):
-        view = store.view()
-        ids = {entry['id'] for group in view['entries'].values() for entry in group}
-        for target in TARGETS:
-            path = source / f'{target.upper()}.md'
-            if not path.is_file() or path.is_symlink():
-                continue
-            if path.stat().st_size > MAX_STORE_BYTES:
-                raise MemoryRefusal('store_too_large', f'{path} exceeds the store byte bound; nothing was imported.')
-            candidates, _ = parse(target, path.read_text(encoding='utf-8', errors='replace'), set())
-            entries = view['entries'][target]
-            chars = view['usage'][target]['chars']
-            for candidate in candidates:
-                known = {entry['text'] for entry in entries}
-                if candidate['status'] != 'ok' or candidate['text'] in known:
-                    skipped[target] += 1
-                    continue
-                if chars + candidate['chars'] > cfg.limits[target] or len(entries) >= MAX_ENTRIES:
-                    skipped[target] += 1
-                    continue
-                candidate['id'] = new_id(target, ids)
-                ids.add(candidate['id'])
-                candidate['updated'] = now()
-                entries.append(candidate)
-                chars += candidate['chars']
-                imported[target] += 1
-            if imported[target]:
-                store.write(target, entries)
-        store.identity()
-        view = store.view()
-        return summary(store, view, status='imported', imported=imported, skipped=skipped, source=str(source),
-                       note='The source store was not modified.')
-
-
 def status(cfg):
     try:
         store = Store(cfg)
     except MemoryRefusal as refusal:
-        # An unresolved or unsafe location must still produce an actionable report.
+        # An unsafe or unreadable store must still produce an actionable report.
         return {'success': True, 'enabled': cfg.enabled, 'configured': cfg.configured, 'backend': cfg.backend,
-                'location': cfg.location, 'store': None, 'store_exists': False, 'revision': None,
+                'store': None, 'store_exists': False, 'revision': None,
                 'project': {'id': cfg.project_id, 'root': str(cfg.root), 'canonical_path': cfg.canonical_path},
                 'targets': {}, 'snapshots': 0, 'store_problem': refusal.payload}
     record = store.identity(create=False)
     result = {'success': True, 'enabled': cfg.enabled, 'configured': cfg.configured, 'backend': cfg.backend,
-              'location': cfg.location, 'store': str(store.dir), 'store_exists': store.dir.is_dir(),
+              'store': str(store.dir), 'store_exists': store.dir.is_dir(),
               'project': {'id': cfg.project_id, 'root': str(cfg.root), 'canonical_path': cfg.canonical_path,
                           'created': record.get('created'), 'previous_paths': record.get('previous_paths', []),
                           'store_version': record.get('store_version', STORE_VERSION)},

@@ -108,8 +108,10 @@ The checked-in configuration is:
   "cache": true,
   "cache_ttl_seconds": 604800,
   "cache_max_bytes": 33554432,
-  "reader": {"max_output_tokens": 2000},
-  "writer": {"max_output_tokens": 8192}
+  "reader": {"max_output_tokens": 4000},
+  "writer": {"max_output_tokens": 32000},
+  "memory": {"enabled": false, "backend": "file",
+             "limits": {"memory_chars": 12000, "operator_chars": 6000}}
 }
 ```
 
@@ -135,9 +137,9 @@ Dotted names below identify nested JSON keys; keep the nested object structure s
 | `cache_ttl_seconds` | `604800` | Reader-cache lifetime: seven days from entry creation. Hits do not renew the lifetime. Expired entries are ignored and removed during a later prune or cache write. |
 | `cache_max_bytes` | `33554432` | Reader-cache size target: 32 MiB. After a new cache write, cleanup removes expired entries and then the oldest entries until within the limit. It is not a background disk quota. |
 | `reader` | Object | Settings for the `bulk-read` workflow. Its output is a focused summary returned to the main agent. |
-| `reader.max_output_tokens` | `2000` | Requested worker output budget for a summary. Both providers receive this target in the worker instructions; see the provider-specific enforcement below. |
+| `reader.max_output_tokens` | `4000` | Requested worker output budget for a summary. Both providers receive this target in the worker instructions; see the provider-specific enforcement below. |
 | `writer` | Object | Settings for the `code-write` workflow. With `--target`, generated content goes to disk and the main agent receives file metadata. |
-| `writer.max_output_tokens` | `8192` | Requested worker output budget for the complete generated file, not the small metadata response returned to the main agent. Incomplete or oversized output is rejected before writing. |
+| `writer.max_output_tokens` | `32000` | Requested worker output budget for the complete generated file, not the small metadata response returned to the main agent. Incomplete or oversized output is rejected before writing. |
 
 Numeric limits must be positive integers; switches must be JSON `true` or `false`.
 Teeplug accepts effort values `low`, `medium`, `high`, `xhigh`, and `max`, but the
@@ -151,7 +153,7 @@ Unknown keys are rejected: do not add an API key or `base_url` to this file.
 | Verify saved login | `claude --safe-mode auth status --json`; requires `claude.ai` authentication | `codex login status`; requires a ChatGPT login |
 | Start generation | `claude -p --model haiku --effort low` | `codex exec --model gpt-5.6-luna -c 'model_reasoning_effort="low"'` |
 | Supply source | Teeplug reads the files internally and sends the prepared JSON payload through stdin | Same; the trailing `-` in the actual command selects stdin |
-| Apply output budget | Instructions plus `CLAUDE_CODE_MAX_OUTPUT_TOKENS=2000` for reading or `8192` for writing | Instructions request the same budget; Teeplug does not pass a hard output-token flag to `codex exec` |
+| Apply output budget | Instructions plus `CLAUDE_CODE_MAX_OUTPUT_TOKENS=4000` for reading or `32000` for writing | Instructions request the same budget; Teeplug does not pass a hard output-token flag to `codex exec` |
 | Accept output | Requires a successful structured response with `text` and `complete: true` | Requires a completed turn and a valid response matching the same output schema |
 
 The generation commands above show the model/effort mapping, not the complete worker
@@ -164,8 +166,8 @@ and [architecture](plugins/teeplug/docs/architecture.md) for the full invocation
 **`max_output_tokens` is not a billing or subscription-allowance cap.** For Codex it is
 a soft target in the prompt. Claude additionally receives its CLI output-budget
 environment variable, whose enforcement belongs to that CLI/model. Teeplug also rejects
-returned text longer than six characters per configured token: 12,000 characters for
-the default reader or 49,152 for the writer. This character check is not exact token
+returned text longer than six characters per configured token: 24,000 characters for
+the default reader or 192,000 for the writer. This character check is not exact token
 counting and happens after generation. Worker input, reasoning, output and CLI overhead
 can still consume subscription allowance.
 
@@ -243,6 +245,6 @@ to reproduce live reader/writer checks with saved byte counts and CLI token usag
 python3 -m unittest discover -s plugins/teeplug/tests -v
 ```
 
-`Codex/` is the user's moved archive and is ignored. Runtime code is under
-`plugins/teeplug/scripts/teepluglib`; the shared skills and hook live alongside it.
+Runtime code is under `plugins/teeplug/scripts/teepluglib`; the shared skills and hook
+live alongside it.
 Apache-2.0; see [LICENSE](LICENSE).

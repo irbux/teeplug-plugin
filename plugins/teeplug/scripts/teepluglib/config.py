@@ -93,17 +93,12 @@ def load(root, config_path=None):
 
 def check_memory(section):
     """Validate the memory section locally: no worker CLI, login check or model request."""
-    if not isinstance(section, dict) or set(section) - {'enabled', 'backend', 'location', 'data_dir', 'limits'}:
-        raise TeeplugError('memory supports enabled, backend, location, data_dir and limits')
+    if not isinstance(section, dict) or set(section) - {'enabled', 'backend', 'limits'}:
+        raise TeeplugError('memory supports enabled, backend and limits')
     if 'enabled' in section and not isinstance(section['enabled'], bool):
         raise TeeplugError('memory.enabled must be a JSON boolean')
     if section.get('backend', 'file') != 'file':
         raise TeeplugError('memory.backend supports file only; app-based memory is not implemented')
-    if section.get('location', 'plugin-data') not in ('plugin-data', 'project'):
-        raise TeeplugError('memory.location must be plugin-data or project')
-    data_dir = section.get('data_dir')
-    if data_dir is not None and (not isinstance(data_dir, str) or not data_dir.strip()):
-        raise TeeplugError('memory.data_dir must be a directory path or null')
     limits = section.get('limits', {})
     if not isinstance(limits, dict) or set(limits) - {'memory_chars', 'operator_chars'}:
         raise TeeplugError('memory.limits supports memory_chars and operator_chars')
@@ -152,7 +147,7 @@ class Settings:
         self.timeout = positive(os.getenv('TEEPLUG_TIMEOUT_SECONDS', data.get('timeout_seconds', 180)), 'timeout_seconds')
         self.max_input_bytes = positive(data.get('max_input_bytes', 512000), 'max_input_bytes')
         budget = max_output_tokens if max_output_tokens is not None else os.getenv(
-            f'TEEPLUG_{mode.upper()}_MAX_OUTPUT_TOKENS', data.get(mode, {}).get('max_output_tokens', 2000 if mode == 'reader' else 8192))
+            f'TEEPLUG_{mode.upper()}_MAX_OUTPUT_TOKENS', data.get(mode, {}).get('max_output_tokens', 4000 if mode == 'reader' else 32000))
         self.max_output_tokens = positive(budget, 'max_output_tokens')
         self.min_lines = positive(os.getenv('TEEPLUG_MIN_LINES', data.get('min_lines', 350)), 'min_lines')
         self.cache = data.get('cache', True)

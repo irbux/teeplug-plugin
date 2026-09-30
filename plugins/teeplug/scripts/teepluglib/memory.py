@@ -27,7 +27,7 @@ except ImportError:  # pragma: no cover - non-POSIX hosts use the fallback lock
 
 STORE_VERSION = 1
 TARGETS = ('memory', 'operator')
-DEFAULT_LIMITS = {'memory': 2600, 'operator': 1720}
+DEFAULT_LIMITS = {'memory': 12000, 'operator': 6000}
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 LOCK_SECONDS = 5.0
 SNAPSHOT_KEEP = 20
@@ -52,22 +52,6 @@ def project_identity(root):
     return f'{slug}-{hashlib.sha256(canonical.encode()).hexdigest()[:12]}', canonical
 
 
-def plugin_data_dir():
-    """Prefer host-provided locations; never fall back to the installed plugin directory."""
-    for name in ('TEEPLUG_MEMORY_DATA_DIR', 'CLAUDE_PLUGIN_DATA', 'PLUGIN_DATA', 'CODEX_PLUGIN_DATA'):
-        value = os.getenv(name)
-        if value and value.strip():
-            return Path(value).expanduser()
-    for candidate in (Path.home() / '.claude' / 'plugins' / 'data' / 'teeplug-teeplug-local',
-                      Path.home() / '.codex' / 'plugins' / 'data' / 'teeplug-teeplug-local'):
-        if candidate.is_dir():
-            return candidate
-    raise MemoryRefusal('data_dir_unresolved',
-                        'No host plugin-data directory could be resolved outside the installed plugin. '
-                        'Run memory setup with --data-dir PATH or --location project.',
-                        next_action='setup')
-
-
 class MemoryConfig:
     """Local configuration only. Memory never resolves a provider, host CLI or login."""
 
@@ -79,8 +63,6 @@ class MemoryConfig:
         self.configured = bool(section)
         self.enabled = os.getenv('TEEPLUG_MEMORY_ENABLED', '1' if section.get('enabled', False) else '0') != '0'
         self.backend = section.get('backend', 'file')
-        self.location = section.get('location', 'plugin-data')
-        self.data_dir = section.get('data_dir')
         limits = section.get('limits', {})
         self.limits = {'memory': positive(limits.get('memory_chars', DEFAULT_LIMITS['memory']), 'memory.limits.memory_chars'),
                        'operator': positive(limits.get('operator_chars', DEFAULT_LIMITS['operator']),
@@ -88,20 +70,12 @@ class MemoryConfig:
         self.project_id, self.canonical_path = project_identity(self.root)
 
     def store_dir(self):
-        if self.location == 'project':
-            base = self.root / '.teeplug' / 'memories'
-        else:
-            data = Path(self.data_dir).expanduser() if self.data_dir else plugin_data_dir()
-            if not data.is_absolute():
-                raise MemoryRefusal('unsafe_path', 'The memory data directory must be an absolute path.')
-            base = data / 'memories' / self.project_id
-        resolved = Path(os.path.realpath(base))
+        """Memory always lives in the project: <root>/.teeplug/memories, never inside the plugin."""
+        resolved = Path(os.path.realpath(self.root / '.teeplug' / 'memories'))
         if resolved == PLUGIN_ROOT or PLUGIN_ROOT in resolved.parents:
-            raise MemoryRefusal('unsafe_path',
-                                'Refusing to store memory inside the installed plugin directory. '
-                                'Choose a host plugin-data directory or --location project.')
-        if self.location == 'project' and not resolved.is_relative_to(Path(os.path.realpath(self.root))):
-            raise MemoryRefusal('unsafe_path', 'Project-local memory must stay inside the project root.')
+            raise MemoryRefusal('unsafe_path', 'Refusing to store memory inside the installed plugin directory.')
+        if not resolved.is_relative_to(Path(os.path.realpath(self.root))):
+            raise MemoryRefusal('unsafe_path', 'Project memory must stay inside the project root.')
         return resolved
 
 

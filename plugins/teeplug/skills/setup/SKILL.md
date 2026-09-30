@@ -18,7 +18,8 @@ A denied keychain/network access check may require the host's normal permission 
 
 Project memory is configured separately and stays disabled until asked for. Use
 `memory setup` from the file-memory skill, not this workflow, and never enable memory
-for a project the user did not ask about. Memory needs no CLI, login or model request.
+for a project the user did not ask about. Memory needs no CLI, login or model request,
+and its store lives at `<project>/.teeplug/memories/`, so `.teeplug/` must stay ignored.
 
 Read `docs/configuration.md` for CLI paths, model overrides, cache and output limits.
 Add `.teeplug/` to the project's ignore file if needed. `.teeplug.json` contains no credentials

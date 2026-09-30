@@ -134,8 +134,9 @@ def run_init(args):
             "timeout_seconds": 180, "max_input_bytes": 512000, "min_lines": 350,
             "enabled": True, "cache": True, "cache_ttl_seconds": 604800,
             "cache_max_bytes": 33554432,
-            "reader": {"max_output_tokens": 2000}, "writer": {"max_output_tokens": 8192},
-            "memory": {"enabled": False}}
+            "reader": {"max_output_tokens": 4000}, "writer": {"max_output_tokens": 32000},
+            "memory": {"enabled": False, "backend": "file",
+                       "limits": {"memory_chars": 12000, "operator_chars": 6000}}}
     if path.exists():
         raise TeeplugError(".teeplug.json already exists; edit it to preserve your settings")
     root.mkdir(parents=True, exist_ok=True)

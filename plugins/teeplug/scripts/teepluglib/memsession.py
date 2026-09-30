@@ -27,7 +27,7 @@ def snapshot_key(session_id):
 
 
 def render(project, revision, state, entries, usage, ceiling=MAX_RENDER_CHARS):
-    """Bounded block. Entries are dropped whole, never cut, and the omission is reported."""
+    """Bounded block. Entries are dropped whole, never cut, oldest first, and the omission is reported."""
     shown = {target: [entry for entry in entries.get(target, []) if entry.get('status', 'ok') == 'ok']
              for target in TARGETS}
     omitted = {target: 0 for target in TARGETS}
@@ -43,7 +43,7 @@ def render(project, revision, state, entries, usage, ceiling=MAX_RENDER_CHARS):
             if not shown[target]:
                 lines.append('(no entries)')
             if omitted[target]:
-                lines.append(f'({omitted[target]} further entries omitted for size; use the file-memory list action)')
+                lines.append(f'({omitted[target]} older entries omitted for size; use the file-memory list action)')
         lines.append('</teeplug-memory>')
         block = '\n'.join(lines)
         if len(block) <= ceiling:
@@ -51,7 +51,7 @@ def render(project, revision, state, entries, usage, ceiling=MAX_RENDER_CHARS):
         target = max(TARGETS, key=lambda name: sum(len(e['text']) for e in shown[name]))
         if not shown[target]:
             return block[:ceiling]
-        shown[target].pop()
+        shown[target].pop(0)
         omitted[target] += 1
 
 

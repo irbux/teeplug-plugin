@@ -46,6 +46,11 @@ class ConfigurationTests(Workspace):
     def test_init_and_offline_doctor(self):
         rc, _, _ = self.run_cli("init", "--root", str(self.root))
         self.assertEqual(rc, 0)
+        data = json.loads((self.root / ".teeplug.json").read_text())
+        self.assertEqual(data["reader"]["max_output_tokens"], 4000)
+        self.assertEqual(data["writer"]["max_output_tokens"], 32000)
+        self.assertEqual(data["memory"], {"enabled": False, "backend": "file",
+                                          "limits": {"memory_chars": 12000, "operator_chars": 6000}})
         with patch("teepluglib.providers.run_process") as process:
             rc, out, _ = self.run_cli("doctor", "--root", str(self.root))
             self.assertEqual(rc, 0)
@@ -163,7 +168,7 @@ class WriterTests(Workspace):
             request = json.loads(message)
             self.assertIn("actual_api", request["context"][0]["content"])
             self.assertIn("reference style", request["references"][0]["content"])
-            self.assertEqual(settings.max_output_tokens, 8192)
+            self.assertEqual(settings.max_output_tokens, 32000)
             return {"text": "```python\nGENERATED_MARKER = 42\n```", "usage": {"output_tokens": 20}}
         rc, out, err = self.run_cli(*self.writer_args(target), worker=worker)
         self.assertEqual(rc, 0)

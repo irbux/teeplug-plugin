@@ -16,17 +16,13 @@ enabling, disabling and re-enabling.
   "memory": {
     "enabled": true,
     "backend": "file",
-    "location": "plugin-data",
-    "data_dir": "/Users/you/.claude/plugins/data/teeplug-teeplug-local",
-    "limits": {"memory_chars": 2600, "operator_chars": 1720}
+    "limits": {"memory_chars": 12000, "operator_chars": 6000}
   }
 }
 ```
 
-`backend` accepts `file`. `location` is `plugin-data` or `project`. `data_dir` is the
-persistent directory recorded by setup for `plugin-data` storage. Limits are 1–20,000
-characters; the combined default entry budget is 4,320 characters. `TEEPLUG_MEMORY_ENABLED=0`
-disables memory for one run, and `TEEPLUG_MEMORY_DATA_DIR` overrides the data directory.
+`backend` accepts `file`. Limits are 1–20,000 characters; the combined default entry
+budget is 18,000 characters. `TEEPLUG_MEMORY_ENABLED=0` disables memory for one run.
 Validation is local: an invalid section is an actionable error from any command.
 
 Lowering a limit below current usage never truncates or deletes anything. The store
@@ -35,8 +31,8 @@ and removals, shrinking replacements, clear and delete still work.
 
 | File | Target | Purpose | Default limit |
 | --- | --- | --- | --- |
-| `MEMORY.md` | `memory` | Environment facts, project lessons, conventions, references | 2,600 |
-| `OPERATOR.md` | `operator` | The operator's explicit preferences and relevant profile facts | 1,720 |
+| `MEMORY.md` | `memory` | Environment facts, project lessons, conventions, references | 12,000 |
+| `OPERATOR.md` | `operator` | The operator's explicit preferences and relevant profile facts | 6,000 |
 
 Both targets are scoped to the selected project. The operator is the person using the
 project; `OPERATOR.md` is not a global profile and never propagates preferences to
@@ -71,19 +67,12 @@ per-file byte cap (256 KiB) and the rendered-output cap (6,000 characters).
 
 ## Storage and project identity
 
-The default store is `<plugin-data>/memories/<project-id>/`, outside the installed and
-versioned plugin code, so a plugin update never relocates it. The project-local option
-is `<project-root>/.teeplug/memories/`, separate from `.teeplug/cache/` and covered by the
-repository's existing `.teeplug/` ignore rule, which keeps personal memory out of version
-control and distributions by default.
-
-The data directory resolves in this order: `TEEPLUG_MEMORY_DATA_DIR`, the recorded
-`memory.data_dir`, then the host hook variables `CLAUDE_PLUGIN_DATA`, `PLUGIN_DATA` and
-`CODEX_PLUGIN_DATA`, then an existing `~/.claude/plugins/data/teeplug-teeplug-local` or
-`~/.codex/plugins/data/teeplug-teeplug-local`. Setup records the directory it resolved, so
-ordinary CLI commands without hook environment variables reach the same store as hooks.
-When nothing resolves, the command returns a `data_dir_unresolved` error naming
-`--data-dir` and `--location project`; it never writes into the plugin directory.
+The store is always `<project-root>/.teeplug/memories/`, inside the project it belongs to
+and separate from `.teeplug/cache/`. It is covered by the repository's existing `.teeplug/`
+ignore rule, which keeps personal memory out of version control and distributions by
+default. There is no host plugin-data location and no configuration for the directory: a
+plugin update never relocates memory, and memory is never written inside the installed
+plugin.
 
 The project id is the canonical directory name reduced to a slug plus the first twelve
 hex digits of the SHA-256 of the canonical absolute path. It does not change when memory
@@ -92,20 +81,22 @@ distinct projects stay isolated. `project.json` records the canonical path, the 
 time and any previous paths; it holds identity only and is recreated when missing.
 
 Symlinked checkouts resolve to their real path and share that store. A nested directory
-with its own `.git` or `.teeplug.json` is a separate project, as is each worktree. A moved
-repository gets a new project id and therefore an empty plugin-data store; `memory
-migrate --from <old-store>` copies entries in, validating each one, skipping duplicates
-and anything that would exceed a limit, and never modifying or deleting the source.
-Changing `location` while entries exist is refused until you pass `--migrate` or `--keep`.
-Claude and Codex can share one store by selecting the same project-local location; the
-host default stores stay separate and nothing synchronizes across hosts.
+with its own `.git` or `.teeplug.json` is a separate project, as is each worktree. Because
+memory lives in the project, moving or copying the repository carries its memory along and
+no import step is required. Claude and Codex share the one project store; nothing is
+synchronized across hosts.
+
+**Recovering a store from an older release.** Earlier releases defaulted to a host
+plugin-data directory such as
+`~/.claude/plugins/data/teeplug-teeplug-local/memories/<project-id>/`. Those files are
+still on disk. Copy `MEMORY.md` and `OPERATOR.md` from there into
+`<project-root>/.teeplug/memories/` by hand; no command performs that import.
 
 Store directories are created with owner-only permissions, files are written `0600`, and
 a symlinked memory file, lock or snapshot is refused rather than followed. Host sandbox
 and managed policy are unchanged; no permission is widened to make a location writable.
-Plugin-data retention on uninstall is the host's behaviour — Claude Code deletes the data
-directory when the last scope is uninstalled unless `--keep-data` is used — so uninstall
-is not promised to preserve memory. Project-local storage is under your own control.
+Memory lives inside the project, so uninstalling the plugin cannot remove it: the store is
+under your own control and travels with the repository.
 
 ## Concurrency
 
@@ -185,10 +176,10 @@ promises no provider cache outcome.
 <teeplug-memory project="teeplug-plugin-9bd86d5dbcab" revision="dc57bbe7f75983f4" snapshot="startup">
 These are remembered reference notes for this project, saved in earlier sessions.
 ...
-MEMORY (86/2600 characters, 3%)
+MEMORY (86/12000 characters, 1%)
 m-5e5e59 #=> Staging deployments must finish the CloudFormation update before the Lambda.
 
-OPERATOR (51/1720 characters, 3%)
+OPERATOR (51/6000 characters, 1%)
 o-cab74f #=> Prefers TypeScript for new scripts in this project.
 </teeplug-memory>
 ```
@@ -237,7 +228,7 @@ CLI directly.
 | `/teeplug:file-memory:remove:operator` | `memory remove --target operator` |
 | `/teeplug:file-memory:remove:memory` | `memory remove --target memory` |
 
-`memory migrate --from DIR` performs an explicit validated import, and `memory context`
+`memory context`
 renders the session block for checking a setup. `add`, `replace` and `remove` read one
 JSON object from stdin — `text`, `old_text`, `source`, `id`, `expect_revision`, `target` —
 or from `--payload-file`, so remembered text is never interpolated into a shell command.
@@ -266,7 +257,7 @@ partially written:
 ```json
 {"success": false, "code": "memory_full",
  "error": "This entry would exceed the memory limit. List current entries to review capacity; existing entries were preserved.",
- "target": "memory", "usage": {"chars": 2550, "limit": 2600, "projected_chars": 2800},
+ "target": "memory", "usage": {"chars": 11800, "limit": 12000, "projected_chars": 12100},
  "entry_chars": 250, "revision": "dc57bbe7f75983f4", "next_action": "list"}
 ```
 
@@ -346,7 +337,6 @@ tokens, subscription allowance or cost.
 
 Verified on Claude Code and Codex hook contracts as documented at
 [Claude hooks](https://code.claude.com/docs/en/hooks),
-[Claude persistent plugin data](https://code.claude.com/docs/en/plugins-reference#persistent-data-directory)
 and [Codex hooks](https://learn.chatgpt.com/docs/hooks). The offline test suite exercises
 the hook JSON protocol for both host field spellings. Behaviour on a specific installed
 host version, including whether the hook is trusted and the exact nested slash-command

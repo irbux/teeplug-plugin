@@ -1,6 +1,7 @@
 [
   {
     "provider": "claude",
+    "reader_max_output_tokens": 2000,
     "source_bytes": 66279,
     "returned_bytes_including_metadata_and_usage": 803,
     "main_context_byte_reduction_percent": 98.79,
@@ -22,6 +23,7 @@
   },
   {
     "provider": "codex",
+    "reader_max_output_tokens": 2000,
     "source_bytes": 66279,
     "returned_bytes_including_metadata_and_usage": 831,
     "main_context_byte_reduction_percent": 98.75,
