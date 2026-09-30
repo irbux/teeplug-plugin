@@ -75,10 +75,12 @@ def run_process(argv, prompt, cwd, env, timeout, output_limit=2_000_000):
                 break
             time.sleep(0.025)
     finally:
-        # Also reap subprocesses that kept pipes open after the CLI exited.
+        # Also reap subprocesses that kept pipes open after the CLI exited. This sweep is
+        # best-effort: by now the group may already be gone or no longer be ours to signal,
+        # so a failed kill must not mask the real result.
         try:
             os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
         process.wait()
         for thread in threads:

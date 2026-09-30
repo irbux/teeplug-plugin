@@ -462,25 +462,26 @@ class ValidationTests(MemoryWorkspace):
                     self.assertNotIn(sample, json.dumps(payload))
 
     def test_extended_credential_formats_are_rejected_by_name(self):
+        # Fillers repeat "Ab12" (and hex-safe "a1b2") so no value resembles a live credential.
         samples = {
-            "aws_secret_access_key": "aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-            "github_pat": "github_pat_11ABCDEFG0abcdefghijklmnopqrstuvwxyz0123456789ABCDEF",
-            "gitlab_token": "glpat-abcdefghij1234567890",
-            "slack_webhook_url": "https://hooks.slack.com/services/T00000000/B00000000/"
-                                 "XXXXXXXXXXXXXXXXXXXXXXXX",
+            "aws_secret_access_key": "aws_secret_access_key = " + "Ab12" * 10,
+            "github_pat": "github_pat_" + "Ab12" * 6,
+            "gitlab_token": "glpat-" + "Ab12" * 5,
+            "slack_webhook_url": "https://hooks.slack.com/services/T" + "Ab12" * 2 + "/B" + "Ab12" * 2
+                                 + "/" + "Ab12" * 5,
             # Split so the literal is not a contiguous Stripe shape for GitHub push protection.
-            "stripe_key": "sk_" + "live_" + "51Habcdefghijklmnopqrstuv",
-            "sendgrid_key": "SG.abcdefghijklmnopqrstuv.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLM",
-            "npm_token": "npm_abcdefghijklmnopqrstuvwxyz0123456789",
-            "pypi_token": "pypi-AgEIcHlwaS5vcmcCJD" + "A" * 50,
-            "huggingface_token": "hf_" + "A" * 34,
-            "databricks_token": "dapi" + "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-            "digitalocean_token": "dop_v1_" + "a" * 64,
-            "shopify_token": "shpat_" + "a" * 32,
-            "twilio_api_key": "SK" + "0123456789abcdef" * 2,
-            "telegram_bot_token": "1234567890:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw2",
-            "discord_bot_token": "M" + "a" * 23 + "." + "b" * 6 + "." + "c" * 27,
-            "azure_account_key": "AccountKey=" + "A" * 88,
+            "stripe_key": "sk_" + "live_" + "Ab12" * 4,
+            "sendgrid_key": "SG." + "Ab12" * 4 + "." + "Ab12" * 4,
+            "npm_token": "npm_" + "Ab12" * 9,
+            "pypi_token": "pypi-" + "Ab12" * 13,
+            "huggingface_token": "hf_" + "Ab12" * 9,
+            "databricks_token": "dapi" + "a1b2" * 8,
+            "digitalocean_token": "dop_v1_" + "a1b2" * 16,
+            "shopify_token": "shpat_" + "a1b2" * 8,
+            "twilio_api_key": "SK" + "a1b2" * 8,
+            "telegram_bot_token": "1234567890:" + "Ab12" * 8 + "Ab1",
+            "discord_bot_token": "M" + "Ab12" * 5 + "Ab1" + "." + "Ab1Ab1" + "." + "Ab12" * 7,
+            "azure_account_key": "AccountKey=" + "Ab12" * 15,
         }
         for name, sample in samples.items():
             with self.subTest(name=name):
