@@ -1,0 +1,36 @@
+{
+  "name": "teeplug",
+  "version": "0.4.0",
+  "description": "Delegate large reads and file generation to local Claude Code or Codex subscription workers, with project-scoped file memory.",
+  "author": {
+    "name": "Teeplug contributors"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/irbux/teeplug-plugin",
+  "keywords": [
+    "bulk-reader",
+    "code-writer",
+    "file-memory",
+    "subscription",
+    "model-routing"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Teeplug Local",
+    "shortDescription": "Large-file summaries and generation with CLI workers",
+    "longDescription": "Keep bulk source and generated files out of the main conversation. Route to the host subscription CLI with configurable worker models and a local summary cache. Optional project-scoped file memory keeps preferences, corrections and verified lessons across sessions.",
+    "developerName": "Teeplug contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write",
+      "CLI"
+    ],
+    "defaultPrompt": [
+      "Set up Teeplug for this project.",
+      "Use bulk-reader to answer a question about these files.",
+      "Use code-writer to generate a file from existing patterns.",
+      "Set up project memory and show its status."
+    ]
+  }
+}

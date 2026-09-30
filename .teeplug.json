@@ -1,0 +1,26 @@
+{
+  "provider": "auto",
+  "providers": {
+    "claude": {
+      "model": "haiku",
+      "effort": "low"
+    },
+    "codex": {
+      "model": "gpt-5.6-luna",
+      "effort": "low"
+    }
+  },
+  "timeout_seconds": 180,
+  "max_input_bytes": 512000,
+  "min_lines": 350,
+  "enabled": true,
+  "cache": true,
+  "cache_ttl_seconds": 604800,
+  "cache_max_bytes": 33554432,
+  "reader": {
+    "max_output_tokens": 2000
+  },
+  "writer": {
+    "max_output_tokens": 8192
+  }
+}

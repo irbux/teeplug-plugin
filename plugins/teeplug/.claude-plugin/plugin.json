@@ -1,0 +1,19 @@
+{
+  "name": "teeplug",
+  "version": "0.4.0",
+  "description": "Delegate large reads and file generation to local Claude Code or Codex subscription workers, with project-scoped file memory.",
+  "author": {
+    "name": "Teeplug contributors"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/irbux/teeplug-plugin",
+  "keywords": [
+    "bulk-reader",
+    "code-writer",
+    "file-memory",
+    "subscription",
+    "model-routing"
+  ],
+  "skills": "./skills/",
+  "commands": "./commands/"
+}

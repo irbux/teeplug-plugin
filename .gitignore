@@ -1,0 +1,9 @@
+Codex/
+.teeplug/
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store
+.claude/
+CLAUDE.local.md
+.idea/

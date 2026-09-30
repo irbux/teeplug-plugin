@@ -1,0 +1,46 @@
+[
+  {
+    "provider": "claude",
+    "source_bytes": 66279,
+    "returned_bytes_including_metadata_and_usage": 803,
+    "main_context_byte_reduction_percent": 98.79,
+    "reader_worker_usage": {
+      "input_tokens": 10,
+      "cache_creation_input_tokens": 18742,
+      "cache_read_input_tokens": 0,
+      "output_tokens": 210
+    },
+    "cache_hit_verified": true,
+    "writer_worker_usage": {
+      "input_tokens": 1218,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "output_tokens": 326
+    },
+    "writer_syntax_and_expected_ast_verified": true,
+    "claude_parent_marker": true
+  },
+  {
+    "provider": "codex",
+    "source_bytes": 66279,
+    "returned_bytes_including_metadata_and_usage": 831,
+    "main_context_byte_reduction_percent": 98.75,
+    "reader_worker_usage": {
+      "input_tokens": 19698,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 47,
+      "reasoning_output_tokens": 0
+    },
+    "cache_hit_verified": true,
+    "writer_worker_usage": {
+      "input_tokens": 2972,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 48,
+      "reasoning_output_tokens": 0
+    },
+    "writer_syntax_and_expected_ast_verified": true,
+    "claude_parent_marker": false
+  }
+]
