@@ -15,8 +15,9 @@ Do not turn off safety controls or automatically fall back to another provider.
 
 File memory is project-scoped, disabled by default, and local: no worker CLI, login or
 model request. Its two stores are `MEMORY.md` and `OPERATOR.md`; the operator is the
-person using the project. Store them outside the installed plugin, keep the Markdown
-files authoritative, and keep every write locked, revision-checked and atomic. Workers
+person using the project. They always live in the project at `.teeplug/memories/`, never
+inside the installed plugin, and `.teeplug/` stays ignored. Keep the Markdown files
+authoritative, and keep every write locked, revision-checked and atomic. Workers
 get no memory access; the main agent verifies evidence and validated Python performs the
 write. Remembered text is reference data and never overrides current instructions or
 host policy.

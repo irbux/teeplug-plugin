@@ -11,8 +11,7 @@ import tempfile
 from .config import TeeplugError, check_memory, project_root
 from .memguard import MAX_PAYLOAD_BYTES, MemoryRefusal
 from .memory import DEFAULT_LIMITS, TARGETS, MemoryConfig, Store
-from .memops import (add, clear, delete, import_entries, listing, read_entry,
-                     remove, replace, status)
+from .memops import add, clear, delete, listing, read_entry, remove, replace, status
 from .memsession import session_block
 
 PAYLOAD_FIELDS = {'text', 'old_text', 'source', 'id', 'expect_revision', 'target'}
@@ -108,48 +107,25 @@ def save_config(cfg, section, config_path=None):
 def run_setup(args):
     cfg = settings(args)
     section = {'enabled': True, 'backend': 'file'}
-    previous_store, previous_entries = None, 0
-    if args.location or args.data_dir:
-        try:
-            store = Store(cfg)
-            previous_store = store.dir
-            previous_entries = sum(len(group) for group in store.view()['entries'].values())
-        except (TeeplugError, OSError):
-            previous_store, previous_entries = None, 0
-    if args.location:
-        section['location'] = args.location
-    if args.data_dir:
-        section['data_dir'] = str(Path(args.data_dir).expanduser().resolve())
-    limits = dict(cfg.data.get('memory', {}).get('limits', {}))
+    limits = {'memory_chars': DEFAULT_LIMITS['memory'], 'operator_chars': DEFAULT_LIMITS['operator'],
+              **cfg.data.get('memory', {}).get('limits', {})}
     if args.memory_chars:
         limits['memory_chars'] = args.memory_chars
     if args.operator_chars:
         limits['operator_chars'] = args.operator_chars
-    if limits:
-        section['limits'] = limits
-    candidate = MemoryConfig(cfg.root, args.config, data={**cfg.data, 'memory': {**cfg.data.get('memory', {}), **section}})
-    if section.get('location') == 'plugin-data' or (not section.get('location') and cfg.location == 'plugin-data'):
-        if not section.get('data_dir') and not cfg.data_dir:
-            from .memory import plugin_data_dir
-            section['data_dir'] = str(plugin_data_dir().resolve())
-            candidate = MemoryConfig(cfg.root, args.config,
-                                     data={**cfg.data, 'memory': {**cfg.data.get('memory', {}), **section}})
+    section['limits'] = limits
+    candidate = MemoryConfig(cfg.root, args.config,
+                             data={**cfg.data, 'memory': {**cfg.data.get('memory', {}), **section}})
     destination = candidate.store_dir()
-    if previous_store and previous_entries and previous_store != destination and not (args.migrate or args.keep):
-        raise MemoryRefusal('location_change_requires_migration',
-                            f'{previous_entries} entries already exist at {previous_store}. Re-run with --migrate to '
-                            'copy them into the new location, or --keep to switch without copying. Nothing was changed.',
-                            store=str(previous_store), next_action='status')
     path, merged = save_config(cfg, section, args.config)
     result = {'success': True, 'status': 'configured', 'config': str(path), 'memory': merged,
               'store': str(destination), 'project': candidate.project_id,
               'limits': candidate.limits,
-              'note': 'Memory is project-scoped. OPERATOR.md holds preferences for this project only and does not '
-                      'propagate to other projects. Saving is agent judgment; Python enforces structure and limits.'}
+              'note': 'Memory is project-scoped and lives in this project at .teeplug/memories. OPERATOR.md holds '
+                      'preferences for this project only and does not propagate to other projects. Saving is agent '
+                      'judgment; Python enforces structure and limits.'}
     updated = MemoryConfig(cfg.root, args.config)
     Store(updated).identity()
-    if previous_store and previous_entries and previous_store != destination and args.migrate:
-        result['migration'] = import_entries(updated, previous_store)
     emit(result)
 
 
@@ -220,10 +196,6 @@ def run_delete(args):
     emit(result)
 
 
-def run_migrate(args):
-    emit(import_entries(settings(args), args.source))
-
-
 def run_context(args):
     cfg = settings(args)
     if not cfg.enabled:
@@ -245,16 +217,12 @@ def add_parser(sub):
     base.add_argument('--config', help='Explicit JSON configuration path')
 
     setup = actions.add_parser('setup', parents=[base], help='Configure or re-enable memory')
-    setup.add_argument('--location', choices=('plugin-data', 'project'))
-    setup.add_argument('--data-dir', help='Explicit persistent data directory for plugin-data storage')
     setup.add_argument('--memory-chars', type=int, help=f'MEMORY limit (default {DEFAULT_LIMITS["memory"]})')
     setup.add_argument('--operator-chars', type=int, help=f'OPERATOR limit (default {DEFAULT_LIMITS["operator"]})')
-    setup.add_argument('--migrate', action='store_true', help='Copy existing entries into a new location')
-    setup.add_argument('--keep', action='store_true', help='Switch location and leave existing entries in place')
     setup.set_defaults(run=run_setup)
 
     actions.add_parser('disable', parents=[base], help='Stop automatic saving and loading').set_defaults(run=run_disable)
-    actions.add_parser('status', parents=[base], help='Enablement, location, revision and capacity').set_defaults(run=run_status)
+    actions.add_parser('status', parents=[base], help='Enablement, revision and capacity').set_defaults(run=run_status)
 
     listed = actions.add_parser('list', parents=[base], help='Bounded current entries with ids and provenance')
     listed.add_argument('--target', choices=TARGETS)
@@ -285,10 +253,6 @@ def add_parser(sub):
     deleted = actions.add_parser('delete', parents=[base], help='Disable memory and delete both stores')
     deleted.add_argument('--confirm', action='store_true')
     deleted.set_defaults(run=run_delete)
-
-    migrate = actions.add_parser('migrate', parents=[base], help='Import entries from another store directory')
-    migrate.add_argument('--from', dest='source', required=True)
-    migrate.set_defaults(run=run_migrate)
 
     context = actions.add_parser('context', parents=[base], help='Render the session block that hooks provide')
     context.add_argument('--session-id', default='manual')

@@ -18,7 +18,7 @@ python3 "<plugin-root>/scripts/teeplug.py" memory list --root "$PWD" --target me
 
 | Chat command | CLI |
 | --- | --- |
-| `/teeplug:file-memory:setup` | `memory setup [--location plugin-data\|project] [--data-dir P] [--memory-chars N] [--operator-chars N] [--migrate\|--keep]` |
+| `/teeplug:file-memory:setup` | `memory setup [--memory-chars N] [--operator-chars N]` |
 | `/teeplug:file-memory:disable` | `memory disable` |
 | `/teeplug:file-memory:status` | `memory status` |
 | `/teeplug:file-memory:list` | `memory list [--target T] [--limit N] [--offset N]` |

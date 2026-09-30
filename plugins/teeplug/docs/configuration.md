@@ -15,8 +15,8 @@ only the allowed project boundary. Source files and targets must stay within tha
       "writer": {"model": "gpt-5.6-terra", "effort": "medium"}
     }
   },
-  "reader": {"max_output_tokens": 2000},
-  "writer": {"max_output_tokens": 8192},
+  "reader": {"max_output_tokens": 4000},
+  "writer": {"max_output_tokens": 32000},
   "timeout_seconds": 180,
   "max_input_bytes": 512000,
   "min_lines": 350,
@@ -24,7 +24,8 @@ only the allowed project boundary. Source files and targets must stay within tha
   "cache": true,
   "cache_ttl_seconds": 604800,
   "cache_max_bytes": 33554432,
-  "memory": {"enabled": false}
+  "memory": {"enabled": false, "backend": "file",
+             "limits": {"memory_chars": 12000, "operator_chars": 6000}}
 }
 ```
 
@@ -53,12 +54,12 @@ field can also specify its executable path. PATH and common macOS app locations 
 
 The `memory` section is separate from the top-level `enabled` switch, which controls
 read routing only. Memory stays off while the section is absent or `enabled` is false.
-`memory setup` configures enablement, `location` (`plugin-data` or `project`), the
-resolved `data_dir` and the per-store character limits, preserving unrelated settings
-and existing entries. All memory commands are local: no CLI, login or model request.
-`TEEPLUG_MEMORY_ENABLED=0`, `TEEPLUG_MEMORY_DATA_DIR` and `TEEPLUG_MEMORY_LOCK_SECONDS` are
-the supported overrides. See [memory](memory.md) for the schema, storage layout,
-locking, validation, session lifecycle and limitations.
+`memory setup` configures enablement and the per-store character limits, preserving
+unrelated settings and existing entries. The store is always
+`<project-root>/.teeplug/memories/`, so there is no location or data-directory option.
+All memory commands are local: no CLI, login or model request. `TEEPLUG_MEMORY_ENABLED=0`
+and `TEEPLUG_MEMORY_LOCK_SECONDS` are the supported overrides. See [memory](memory.md)
+for the schema, storage layout, locking, validation, session lifecycle and limitations.
 
 ## Subscription authentication
 

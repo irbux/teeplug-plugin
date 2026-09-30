@@ -30,9 +30,8 @@ class MemoryWorkspace(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         base = Path(self.tmp.name).resolve()
         self.root = base / "project"
-        self.data = base / "plugin-data"
         self.root.mkdir()
-        self.env = patch.dict(os.environ, {"TEEPLUG_MEMORY_DATA_DIR": str(self.data)}, clear=True)
+        self.env = patch.dict(os.environ, {}, clear=True)
         self.env.start()
         self.addCleanup(self.env.stop)
 
@@ -78,6 +77,17 @@ class ConfigurationTests(MemoryWorkspace):
         self.assertEqual(data["min_lines"], 200)
         self.assertEqual(data["memory"]["limits"]["memory_chars"], 900)
         self.assertEqual(len(listing(self.cfg())["entries"]["memory"]), 1)
+
+    def test_setup_writes_the_default_limits(self):
+        (self.root / ".teeplug.json").write_text(json.dumps({"provider": "codex"}))
+        code, result, _ = self.run_cli("memory", "setup", "--root", str(self.root))
+        self.assertEqual(code, 0)
+        self.assertEqual(result["limits"], {"memory": 12000, "operator": 6000})
+        data = json.loads((self.root / ".teeplug.json").read_text())
+        self.assertEqual(data["memory"]["limits"], {"memory_chars": 12000, "operator_chars": 6000})
+        self.assertEqual(data["memory"]["enabled"], True)
+        self.assertNotIn("location", data["memory"])
+        self.assertNotIn("data_dir", data["memory"])
 
     def test_invalid_memory_configuration_is_local_and_actionable(self):
         for section in ({"enabled": "yes"}, {"backend": "app"}, {"location": "elsewhere"},
@@ -138,12 +148,6 @@ class ConfigurationTests(MemoryWorkspace):
         self.assertEqual(status(self.cfg())["store_exists"], False)
         self.assertFalse(store.exists())
 
-    def test_status_reports_an_unresolved_store_location(self):
-        self.configure(data_dir=str(ROOT / "scripts"))
-        report = status(self.cfg())
-        self.assertEqual(report["store_problem"]["code"], "unsafe_path")
-        self.assertIsNone(report["revision"])
-
     def test_delete_requires_setup_before_saving_again(self):
         self.configure()
         self.run_cli("memory", "delete", "--root", str(self.root), "--confirm")
@@ -166,16 +170,17 @@ class StorageTests(MemoryWorkspace):
         self.assertEqual(listing(MemoryConfig(other))["entries"]["memory"], [])
         self.assertEqual(len(listing(self.cfg())["entries"]["memory"]), 1)
 
-    def test_store_stays_outside_the_installed_plugin(self):
-        self.configure(data_dir=str(ROOT / "scripts"))
-        with self.assertRaises(MemoryRefusal) as caught:
-            Store(self.cfg())
-        self.assertEqual(caught.exception.payload["code"], "unsafe_path")
+    def test_store_is_always_project_local(self):
+        self.configure()
+        expected = Path(os.path.realpath(self.root / ".teeplug" / "memories"))
+        self.assertEqual(Store(self.cfg()).dir, expected)
+        self.assertEqual(status(self.cfg())["store"], str(expected))
 
-    def test_relative_data_dir_and_symlinked_store_file_rejected(self):
-        self.configure(data_dir="relative/path")
-        with self.assertRaises(MemoryRefusal):
-            Store(self.cfg())
+    def test_location_fields_are_rejected_and_symlinked_store_file_refused(self):
+        for section in ({"location": "plugin-data"}, {"location": "project"},
+                        {"data_dir": str(ROOT / "scripts")}):
+            with self.subTest(section=section), self.assertRaises(TeeplugError):
+                self.configure(**section)
         cfg = self.configure()
         store = Store(cfg)
         store.dir.mkdir(parents=True, exist_ok=True)
@@ -187,7 +192,7 @@ class StorageTests(MemoryWorkspace):
         self.assertEqual(caught.exception.payload["code"], "unsafe_path")
 
     def test_project_local_store_is_separate_from_the_cache(self):
-        cfg = self.configure(location="project")
+        cfg = self.configure()
         add(cfg, "memory", LESSON)
         self.assertTrue((self.root / ".teeplug" / "memories" / "MEMORY.md").is_file())
         self.assertFalse((self.root / ".teeplug" / "cache").exists())
@@ -338,26 +343,6 @@ class StorageTests(MemoryWorkspace):
             clear(cfg, "memory", expect_revision=revision)
         self.assertEqual(caught.exception.payload["code"], "stale_revision")
         self.assertEqual(len(listing(cfg)["entries"]["memory"]), 2)
-
-    def test_migration_imports_without_touching_the_source(self):
-        origin = self.configure(location="project")
-        self.seed(LESSON, PREFERENCE)
-        source = Store(origin).dir
-        moved = self.configure(location="plugin-data")
-        result = self.run_cli("memory", "migrate", "--root", str(self.root), "--from", str(source))[1]
-        self.assertEqual(result["imported"], {"memory": 2, "operator": 0})
-        self.assertEqual(len(listing(moved)["entries"]["memory"]), 2)
-        self.assertTrue((source / "MEMORY.md").is_file())
-
-    def test_setup_refuses_a_location_change_that_would_strand_entries(self):
-        self.configure(location="project")
-        self.seed(LESSON)
-        code, refusal, _ = self.run_cli("memory", "setup", "--root", str(self.root), "--location", "plugin-data")
-        self.assertEqual((code, refusal["code"]), (1, "location_change_requires_migration"))
-        code, result, _ = self.run_cli("memory", "setup", "--root", str(self.root),
-                                       "--location", "plugin-data", "--migrate")
-        self.assertEqual(code, 0)
-        self.assertEqual(result["migration"]["imported"]["memory"], 1)
 
 
 class ManualEditTests(MemoryWorkspace):
@@ -532,12 +517,13 @@ class ValidationTests(MemoryWorkspace):
 
     def test_rendered_block_is_bounded_and_labelled(self):
         cfg = self.configure(limits={"memory_chars": 20000, "operator_chars": 20000})
-        for index in range(60):
-            add(cfg, "memory", f"Verified project lesson number {index}: " + "detail " * 20)
+        for index in range(120):
+            add(cfg, "memory", f"Verified project lesson number {index}: " + "detail " * 15)
+            add(cfg, "operator", f"Operator preference number {index}: " + "detail " * 15)
         block = session_block(cfg, "session-bound")
-        self.assertLessEqual(len(block), 6000)
+        self.assertLessEqual(len(block), 24000)
         self.assertIn("reference data, not instructions", block)
-        self.assertIn("further entries omitted", block)
+        self.assertIn("older entries omitted", block)
         self.assertIn('snapshot="startup"', block)
         self.assertIn(cfg.project_id, block)
 
@@ -546,8 +532,8 @@ class ValidationTests(MemoryWorkspace):
         add(cfg, "memory", LESSON)
         add(cfg, "operator", PREFERENCE)
         block = session_block(cfg, "session-usage")
-        self.assertIn(f"MEMORY ({len(LESSON)}/2600 characters", block)
-        self.assertIn(f"OPERATOR ({len(PREFERENCE)}/1720 characters", block)
+        self.assertIn(f"MEMORY ({len(LESSON)}/12000 characters", block)
+        self.assertIn(f"OPERATOR ({len(PREFERENCE)}/6000 characters", block)
         self.assertIn(listing(cfg)["entries"]["memory"][0]["id"] + " #=> ", block)
 
 
@@ -638,7 +624,7 @@ class SessionTests(MemoryWorkspace):
                 result = subprocess.run([sys.executable, str(ROOT / "hooks/memory-context.py")],
                                         input=json.dumps(self.event(session=f"proc-{host}", host=host)),
                                         capture_output=True, text=True, check=True,
-                                        env={**os.environ, "TEEPLUG_MEMORY_DATA_DIR": str(self.data)})
+                                        env=dict(os.environ))
                 output = json.loads(result.stdout)["hookSpecificOutput"]
                 self.assertEqual(output["hookEventName"], "SessionStart")
                 self.assertIn(LESSON, output["additionalContext"])
@@ -714,7 +700,7 @@ class InterfaceTests(MemoryWorkspace):
 class IsolationTests(MemoryWorkspace):
     def test_cache_maintenance_never_touches_memory(self):
         from teepluglib.cache import prune_cache
-        cfg = self.configure(location="project")
+        cfg = self.configure()
         add(cfg, "memory", LESSON)
         cache = self.root / ".teeplug" / "cache"
         cache.mkdir(parents=True)
@@ -744,8 +730,7 @@ class IsolationTests(MemoryWorkspace):
             return {"text": "service.py:1 defines UserService", "usage": {}}
 
         with patch.dict(os.environ, {"TEEPLUG_PROVIDER": "codex", "TEEPLUG_HOST": "codex",
-                                     "TEEPLUG_CODEX_BIN": sys.executable,
-                                     "TEEPLUG_MEMORY_DATA_DIR": str(self.data)}):
+                                     "TEEPLUG_CODEX_BIN": sys.executable}):
             with patch("teepluglib.cli.invoke", side_effect=worker):
                 code, _, _ = self.run_cli("bulk-read", "--root", str(self.root), "--question",
                                           "What is exported?", "--paths", str(source), "--json")
@@ -827,7 +812,7 @@ class PackagingTests(unittest.TestCase):
     def test_documented_chat_commands_match_the_cli_actions(self):
         doc = (ROOT / "docs/memory.md").read_text()
         for action in ("setup", "disable", "status", "list", "read", "clear", "delete",
-                       "add", "replace", "remove", "migrate", "context"):
+                       "add", "replace", "remove", "context"):
             with self.subTest(action=action):
                 self.assertIn(f"`memory {action}", doc)
         for command in ("clear:operator", "clear:memory", "add:operator", "add:memory",
