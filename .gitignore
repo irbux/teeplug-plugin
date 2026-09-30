@@ -1,4 +1,3 @@
-Codex/
 .teeplug/
 __pycache__/
 *.py[cod]
@@ -7,3 +6,4 @@ __pycache__/
 .claude/
 CLAUDE.local.md
 .idea/
+.kilo/

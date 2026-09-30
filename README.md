@@ -243,6 +243,6 @@ to reproduce live reader/writer checks with saved byte counts and CLI token usag
 python3 -m unittest discover -s plugins/teeplug/tests -v
 ```
 
-`Codex/` is the user's moved archive and is ignored. Runtime code is under
-`plugins/teeplug/scripts/teepluglib`; the shared skills and hook live alongside it.
+Runtime code is under `plugins/teeplug/scripts/teepluglib`; the shared skills and hook
+live alongside it.
 Apache-2.0; see [LICENSE](LICENSE).

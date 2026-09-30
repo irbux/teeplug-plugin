@@ -2,7 +2,6 @@
 
 This repository is an independent fork. The installable
 plugin is `plugins/teeplug`. Root marketplace files serve Codex and Claude Code.
-The moved `Codex/` directory is a local archive: do not modify it or include it in distributions.
 
 Keep the runtime Python 3.10+ standard library only. Workers use the official
 `claude -p` and `codex exec` CLIs with saved subscription authentication. Do not add
