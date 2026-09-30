@@ -24,13 +24,35 @@ SOURCE_RE = re.compile(r'[A-Za-z0-9_.:/#@+-]{1,%d}' % MAX_SOURCE_CHARS)
 TIMESTAMP_RE = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z')
 
 # Known credential shapes. Matches are reported by name; the text is never echoed.
+# Every entry needs a literal provider prefix or a tight structural constraint, so prose
+# and documentation excerpts rarely match. A value with the right shape is refused even
+# when it is not a live credential; that is deliberate, because shape is all that can be
+# checked offline.
 SECRET_PATTERNS = (
     ('aws_access_key', re.compile(r'\b(?:AKIA|ASIA)[0-9A-Z]{16}\b')),
+    ('aws_secret_access_key', re.compile(
+        r'(?i)\baws[_-]?secret[_-]?access[_-]?key\b\s*[:=]\s*["\']?[A-Za-z0-9/+=]{40}')),
     ('github_token', re.compile(r'\bgh[pousr]_[A-Za-z0-9]{36,}')),
+    ('github_pat', re.compile(r'\bgithub_pat_[A-Za-z0-9_]{22,}')),
+    ('gitlab_token', re.compile(r'\bgl(?:pat|rt|dt|cbt|soat|ptt|imt|agent)-[A-Za-z0-9_-]{20,}')),
     ('slack_token', re.compile(r'\bxox[abposr]-[A-Za-z0-9-]{12,}')),
+    ('slack_webhook_url', re.compile(
+        r'https://hooks\.slack\.com/services/T[A-Za-z0-9_]{8,}/B[A-Za-z0-9_]{8,}/[A-Za-z0-9_]{20,}')),
     ('anthropic_key', re.compile(r'\bsk-ant-[A-Za-z0-9_-]{20,}')),
     ('openai_key', re.compile(r'\bsk-(?:proj-)?[A-Za-z0-9_-]{32,}')),
+    ('stripe_key', re.compile(r'\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}')),
     ('google_api_key', re.compile(r'\bAIza[0-9A-Za-z_-]{35}\b')),
+    ('sendgrid_key', re.compile(r'\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}')),
+    ('npm_token', re.compile(r'\bnpm_[A-Za-z0-9]{36}\b')),
+    ('pypi_token', re.compile(r'\bpypi-[A-Za-z0-9_-]{50,}')),
+    ('huggingface_token', re.compile(r'\bhf_[A-Za-z0-9]{34,}\b')),
+    ('databricks_token', re.compile(r'\bdapi[0-9a-f]{32}\b')),
+    ('digitalocean_token', re.compile(r'\bdop_v1_[0-9a-f]{64}\b')),
+    ('shopify_token', re.compile(r'\bshp(?:at|ss|ca|pa)_[0-9a-f]{32}\b')),
+    ('twilio_api_key', re.compile(r'\bSK[0-9a-fA-F]{32}\b')),
+    ('telegram_bot_token', re.compile(r'\b\d{8,10}:[A-Za-z0-9_-]{35}\b')),
+    ('discord_bot_token', re.compile(r'\b[MNO][A-Za-z0-9_-]{23}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}')),
+    ('azure_account_key', re.compile(r'(?i)\bAccountKey=[A-Za-z0-9+/=]{60,}')),
     ('private_key_block', re.compile(r'-----BEGIN [A-Z ]{0,30}PRIVATE KEY-----')),
     ('json_web_token', re.compile(r'\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}')),
 )

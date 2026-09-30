@@ -461,6 +461,36 @@ class ValidationTests(MemoryWorkspace):
                     self.assertEqual(payload["code"], code)
                     self.assertNotIn(sample, json.dumps(payload))
 
+    def test_extended_credential_formats_are_rejected_by_name(self):
+        samples = {
+            "aws_secret_access_key": "aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            "github_pat": "github_pat_11ABCDEFG0abcdefghijklmnopqrstuvwxyz0123456789ABCDEF",
+            "gitlab_token": "glpat-abcdefghij1234567890",
+            "slack_webhook_url": "https://hooks.slack.com/services/T00000000/B00000000/"
+                                 "XXXXXXXXXXXXXXXXXXXXXXXX",
+            # Split so the literal is not a contiguous Stripe shape for GitHub push protection.
+            "stripe_key": "sk_" + "live_" + "51Habcdefghijklmnopqrstuv",
+            "sendgrid_key": "SG.abcdefghijklmnopqrstuv.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLM",
+            "npm_token": "npm_abcdefghijklmnopqrstuvwxyz0123456789",
+            "pypi_token": "pypi-AgEIcHlwaS5vcmcCJD" + "A" * 50,
+            "huggingface_token": "hf_" + "A" * 34,
+            "databricks_token": "dapi" + "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+            "digitalocean_token": "dop_v1_" + "a" * 64,
+            "shopify_token": "shpat_" + "a" * 32,
+            "twilio_api_key": "SK" + "0123456789abcdef" * 2,
+            "telegram_bot_token": "1234567890:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw2",
+            "discord_bot_token": "M" + "a" * 23 + "." + "b" * 6 + "." + "c" * 27,
+            "azure_account_key": "AccountKey=" + "A" * 88,
+        }
+        for name, sample in samples.items():
+            with self.subTest(name=name):
+                with self.assertRaises(MemoryRefusal) as caught:
+                    validate_entry("Deploy note: " + sample)
+                payload = caught.exception.payload
+                self.assertEqual(payload["code"], "secret_detected")
+                self.assertIn(name, payload["error"])
+                self.assertNotIn(sample, json.dumps(payload))
+
     def test_legitimate_notes_are_not_false_positives(self):
         for sample in ["Staging uses a nonstandard SSH port 2222; the runbook documents it.",
                        "API key rotation happens monthly; the key itself lives in 1Password.",
@@ -470,6 +500,10 @@ class ValidationTests(MemoryWorkspace):
                        "Ignore the previous migration notes; the schema changed in March.",
                        "The client_secret: managed-in-vault note explains the rotation policy.",
                        "Deployment needs an approval from the release owner before production.",
+                       "Provider prefix notes: npm packages and Stripe webhooks are configured in the vault.",
+                       "The GitHub App uses a fine-grained token; the value lives in the vault, not here.",
+                       "SendGrid delivery is verified per domain; see the operations runbook.",
+                       "AWS secret access key rotation is quarterly; this note records the policy only.",
                        "Emoji and accents are fine: café 日本語 🎉 with a zero-width joiner ‍."]:
             with self.subTest(sample=sample[:30]):
                 self.assertIsNone(scan(normalize(sample)))

@@ -133,17 +133,25 @@ Pattern scanning is a best-effort filter for known suspicious content, not a gua
 that every prompt injection or exfiltration attempt is detected. Entries are validated on
 write and on load, including hand-edited files, retrieved entries and restored snapshots.
 
-Rejected on both paths: known credential formats (AWS, GitHub, Slack, Anthropic, OpenAI
-and Google keys, private-key blocks, JSON web tokens) and credential assignments with a
-mixed-class value; instruction-override, auto-approval, control-disabling, pipe-to-shell,
-credential-exfiltration, reverse-shell, `authorized_keys` and setuid patterns; C0 and C1
-control characters other than newline and tab; the bidirectional controls U+202A–U+202E,
-U+2066–U+2069, U+200E and U+200F; the zero-width characters U+200B, U+2060 and U+FEFF; and
-Unicode tag characters U+E0000–U+E007F. Ordinary Unicode text, including accents, CJK,
-emoji and zero-width joiners, is allowed, and prose such as "staging uses a nonstandard
+Rejected on both paths: known credential shapes (AWS access and secret keys, GitHub and
+GitLab tokens including fine-grained PATs, Slack tokens and webhook URLs, Anthropic, OpenAI,
+Stripe, Google, SendGrid, npm, PyPI, Hugging Face, Databricks, DigitalOcean, Shopify, Twilio,
+Telegram, Discord and Azure keys, private-key blocks, JSON web tokens) and credential
+assignments with a mixed-class value; instruction-override, auto-approval, control-disabling,
+pipe-to-shell, credential-exfiltration, reverse-shell, `authorized_keys` and setuid patterns;
+C0 and C1 control characters other than newline and tab; the bidirectional controls
+U+202A–U+202E, U+2066–U+2069, U+200E and U+200F; the zero-width characters U+200B, U+2060 and
+U+FEFF; and Unicode tag characters U+E0000–U+E007F. Ordinary Unicode text, including accents,
+CJK, emoji and zero-width joiners, is allowed, and prose such as "staging uses a nonstandard
 SSH port 2222" or "API key rotation happens monthly" is not a match. A note that names a
 credential action, such as "do not send credentials to the log service", can still trip
 the exfiltration filter; rephrase the note or keep it in a repository instruction file.
+
+Each pattern requires a literal provider prefix or a tight structural constraint, so a
+matching value is refused even when it is a placeholder rather than a live credential:
+detection is by shape alone and no value is ever checked against a provider. A credential
+in an unlisted format, or one split across entries, is not detected; store the policy and
+keep the value elsewhere.
 
 Input is bounded independently of the configurable limits: 64 KiB per payload, 1,000
 characters and 12 lines per entry, 200 entries and 256 KiB per store, and 6,000 characters
