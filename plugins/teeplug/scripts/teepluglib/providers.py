@@ -144,6 +144,39 @@ def parse_response(provider, out):
         raise TeeplugError('Worker output was not valid structured JSON; no output written') from None
 
 
+def failure_hint(out, err):
+    """Classify CLI diagnostics without returning logs or inspecting model messages."""
+    diagnostics = [err]
+    for line in out.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        if event.get('type') == 'error' and isinstance(event.get('message'), str):
+            diagnostics.append(event['message'])
+        elif event.get('type') == 'turn.failed':
+            error = event.get('error')
+            if isinstance(error, dict) and isinstance(error.get('message'), str):
+                diagnostics.append(error['message'])
+    diagnostic = '\n'.join(diagnostics).lower()
+    if any(text in diagnostic for text in ('operation not permitted', 'permission denied',
+                                          'read-only file system', 'attempt to write a readonly database')):
+        return ('worker_access_denied: the CLI reported a local access denial. '
+                'The host sandbox can block the CLI state database or authentication even when login status passes. '
+                'If sandboxed, retry this same Teeplug command through the host permission approval flow '
+                '(in Codex exec_command: sandbox_permissions="require_escalated"). '
+                'Keep the worker read-only sandbox and managed policy intact.')
+    if any(text in diagnostic for text in ('network is unreachable', 'failed to lookup address information',
+                                          'dns error', 'error sending request', 'connection refused')):
+        return ('worker_network_error: the CLI could not reach its service. Check network availability; '
+                'if the host sandbox blocks the connection, retry this same Teeplug command through '
+                'the host permission approval flow (in Codex exec_command: '
+                'sandbox_permissions="require_escalated"). Keep managed policy intact.')
+    return None
+
+
 def invoke(settings, instructions, message):
     if os.getenv('TEEPLUG_WORKER'):
         raise TeeplugError('Recursive Teeplug workers are disabled')
@@ -183,6 +216,9 @@ def invoke(settings, instructions, message):
         # Deliberately do not relay CLI logs, which may include source and generated code.
         if 'cannot be launched inside another Claude Code session' in out + err:
             raise TeeplugError('This Claude version rejects nested workers. Use a supported CLI version or --provider codex.')
+        hint = failure_hint(out, err)
+        if hint:
+            raise TeeplugError(f'{settings.provider} {hint} No output written; raw logs withheld.')
         raise TeeplugError(f'{settings.provider} worker exited with status {rc}. Check model access, CLI version, '
                          'subscription allowance and sandbox/network access. No output written; raw logs withheld.')
     result = parse_response(settings.provider, out)

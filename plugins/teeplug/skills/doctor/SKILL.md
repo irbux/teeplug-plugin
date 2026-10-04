@@ -12,6 +12,14 @@ whether configuration, login, and actual model access have been verified.
 Only use `doctor --host HOST --probe` when live checks are authorized; it consumes a
 small amount of the selected subscription allowance. Never print tokens or raw logs.
 
+Login status can pass while generation fails: the Codex worker also needs writable
+CLI state (including SQLite) and network access. For `worker_access_denied`, or a
+network failure caused by the host sandbox, retry the same authorized check through
+the host's normal permission flow. In Codex `exec_command`, set
+`sandbox_permissions="require_escalated"` with a short justification. Keep the worker
+read-only sandbox and managed policy intact. If approval is denied or the approved
+retry fails, report that blocker. A passing probe verifies only the reader model.
+
 Use `memory status` for project memory: it is read-only, local, and reports enablement,
 store location, revision, capacity and any store problem without loading entries.
 Never clear, delete or disable memory as an automatic diagnosis.

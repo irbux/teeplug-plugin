@@ -14,7 +14,12 @@ Use `doctor --host HOST --auth` to verify the existing CLI subscription login.
 Use `doctor --host HOST --probe` when a live check is authorized; it sends no source.
 If authentication is missing, tell the user to run `claude auth login` or `codex login`
 in their terminal. Do not read auth files, request tokens, or configure an API key.
-A denied keychain/network access check may require the host's normal permission flow.
+Login status can pass while the worker's SQLite state or network access is denied.
+For `worker_access_denied`, or a network failure caused by the host sandbox, retry
+the same authorized check through the host's normal permission flow. In Codex
+`exec_command`, use `sandbox_permissions="require_escalated"` with a short justification.
+Keep the worker read-only sandbox and managed policy intact. If approval is denied
+or the approved retry fails, report that blocker instead of changing models or login.
 
 Project memory is configured separately and stays disabled until asked for. Use
 `memory setup` from the file-memory skill, not this workflow, and never enable memory

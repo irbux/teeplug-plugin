@@ -72,8 +72,32 @@ No API adapter or automatic API billing fallback exists.
 
 `doctor` is offline. `doctor --auth` checks CLI status. `doctor --probe` checks the reader
 model with a tiny synthetic request using the normal worker adapter. Probe success does
-not verify a separate writer model override. A sandbox may deny keychain or network
-access even when your terminal is logged in; use the host's normal permission flow.
+not verify a separate writer model override. A sandbox may deny keychain, CLI state
+database writes or network access even when login status succeeds.
+
+### Codex worker permission errors
+
+The parent Codex sandbox applies to the Teeplug script and the CLI it launches.
+The worker CLI needs writable local state (including its SQLite database) and a
+connection to the model service. Its `--sandbox read-only` setting restricts the
+worker's tools; it does not make the CLI's own state read-only.
+
+When Teeplug reports `worker_access_denied`, or `worker_network_error` caused by
+the host sandbox, the calling agent should retry the same command through the
+normal host permission flow. For Codex's `exec_command`, that means
+`sandbox_permissions="require_escalated"` and a justification for the worker call.
+The script cannot request or grant this permission itself. Keep the worker's
+read-only sandbox and managed policy intact. If approval is denied, or the approved
+retry also fails, stop and report the observed blocker. A restart alone does not
+grant permission, and reinstalling or changing models does not repair this denial.
+
+When multiple Codex CLIs are installed, check the `executable` returned by `doctor`.
+An older VS Code extension executable on PATH can reject a model that a newer
+desktop CLI accepts. Set `providers.codex.command` to the verified executable in
+the project's `.teeplug.json`; for example,
+`/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex` for a ChatGPT app
+installation containing that file. This selects the worker CLI without changing
+either model or the main agent. Verify the path exists before configuring it.
 
 ## Budgets and failures
 
