@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from teepluglib.config import Settings, TeeplugError
-from teepluglib.providers import child_env, invoke, parse_response, run_process
+from teepluglib.providers import child_env, failure_hint, invoke, parse_response, run_process
 from teepluglib.cache import cache_status, prune_cache
 from teepluglib.files import cache_path, cache_read, cache_write
 
@@ -31,6 +31,12 @@ value={'text':'answer', 'complete': case != 'partial'}
 if case=='error':
     print('PRIVATE_SOURCE SECRET_VALUE',file=sys.stderr)
     sys.exit(9)
+if case=='access':
+    print('SQLite: Operation not permitted (os error 1) PRIVATE_SOURCE SECRET_VALUE',file=sys.stderr)
+    sys.exit(1)
+if case=='network':
+    print(json.dumps({'type':'turn.failed','error':{'message':'error sending request: PRIVATE_SOURCE SECRET_VALUE'}}))
+    sys.exit(1)
 if '-p' in args:
     assert '--safe-mode' in args and '--no-session-persistence' in args
     assert args[args.index('--tools')+1] == ''
@@ -79,6 +85,32 @@ class WorkerTests(unittest.TestCase):
                 invoke(Settings(self.root, provider='codex'), 'Read.', 'PRIVATE_SOURCE')
         self.assertNotIn('SECRET_VALUE', str(caught.exception))
         self.assertNotIn('PRIVATE_SOURCE', str(caught.exception))
+
+    def test_access_and_network_failures_guide_host_retry_without_retrying(self):
+        for case, code in [('access', 'worker_access_denied'), ('network', 'worker_network_error')]:
+            with self.subTest(case=case), patch.dict(os.environ, {'FAKE_CASE': case}):
+                with patch('teepluglib.providers.run_process', wraps=run_process) as process:
+                    with self.assertRaises(TeeplugError) as caught:
+                        invoke(Settings(self.root, provider='codex'), 'Read.', 'PRIVATE_SOURCE')
+                self.assertEqual(process.call_count, 2)  # Login plus one worker; no retry.
+                message = str(caught.exception)
+                self.assertIn(code, message)
+                self.assertIn('sandbox_permissions="require_escalated"', message)
+                self.assertNotIn('SECRET_VALUE', message)
+                self.assertNotIn('PRIVATE_SOURCE', message)
+
+    def test_failure_hints_ignore_model_messages_and_unrelated_failures(self):
+        out = json.dumps({'type': 'item.completed', 'item': {
+            'type': 'agent_message', 'text': 'Permission denied: error sending request SECRET_VALUE'}})
+        self.assertIsNone(failure_hint(out, 'worker failed for another reason'))
+        self.assertIsNone(failure_hint('', 'Unsupported model or usage limit exceeded'))
+        self.assertIsNone(failure_hint('[]\nnull\nmalformed', ''))
+        self.assertIsNone(failure_hint('{"type":"turn.failed","error":[]}', ''))
+        for diagnostic in ('Permission denied', 'Read-only file system', 'attempt to write a readonly database'):
+            self.assertIn('worker_access_denied', failure_hint('', diagnostic))
+        out = json.dumps({'type': 'error', 'message': 'dns error SECRET_VALUE'})
+        self.assertIn('worker_network_error', failure_hint(out, ''))
+        self.assertNotIn('SECRET_VALUE', failure_hint(out, ''))
 
     def test_recursive_worker_rejected(self):
         with patch.dict(os.environ, {'TEEPLUG_WORKER':'1'}), patch('teepluglib.providers.run_process') as call:

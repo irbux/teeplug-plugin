@@ -12,6 +12,14 @@ Respect an explicit user `--provider`, `--model`, or `--effort` choice; do not
 change the main agent model. Do not retry a failed worker using another provider
 without an explicit routing choice. Worker calls use the selected CLI subscription.
 
+The worker CLI needs its own local state and network access, even though its model
+cannot use tools. If it reports `worker_access_denied`, or network failure caused by
+the host sandbox, retry the same command through the host's normal permission flow.
+In Codex `exec_command`, use `sandbox_permissions="require_escalated"` with a short
+justification. The script cannot grant itself permission. Keep the worker's read-only
+sandbox and managed policy intact; do not move credentials or change providers/models.
+If approval is denied or the approved retry also fails, report that specific blocker.
+
 ```bash
 "<plugin-root>/scripts/code-write" --host codex --spec "Write tests for UserService following the reference test conventions" --reference tests/test_orders.py --context src/users.py --target tests/test_users.py
 ```

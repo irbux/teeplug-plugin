@@ -75,6 +75,12 @@ The writer loads references internally and saves a complete result directly to d
 Existing targets need `--overwrite`. Validate generated code with appropriate tests
 and inspect original source excerpts before relying on a summary for an edit.
 
+In a Codex chat, a worker may report `worker_access_denied` because the parent sandbox
+blocks the CLI's own state database. Have the agent retry the same Teeplug command
+through Codex's normal permission approval flow. The worker stays read-only. See
+[worker permissions](plugins/teeplug/docs/configuration.md#codex-worker-permission-errors)
+for this failure and selecting the intended CLI when several versions are installed.
+
 The read hook redirects common unbounded reads above 350 lines to the reader.
 Small reads stay available. This is best-effort routing: scripts, complex shell syntax,
 and other read tools can bypass detection, so the skill instructions also matter.

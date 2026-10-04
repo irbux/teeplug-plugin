@@ -4,6 +4,35 @@ Reproduction commands and methodology: [TESTING.md](../../../TESTING.md). The ru
 harness is `tests/reproduce_live.py` at the repository root. The historical numbers
 below are preserved; reruns write separate reports under `.teeplug/validation/`.
 
+## Codex worker launch regression (0.4.1)
+
+On 2026-10-04, reproduced a worker startup failure inside a Codex workspace-write
+sandbox: login status succeeded, but the CLI exited before starting a model turn
+with SQLite and operation-not-permitted diagnostics. The same synthetic probe
+passed through the host's normal permission approval flow. Version 0.4.1 returns
+an actionable `worker_access_denied` message and its skills describe the host retry;
+the worker retains its read-only sandbox and managed policy.
+
+The installed VS Code Codex CLI 0.155.0-alpha.16.3 also rejected `gpt-6.1-sol` as
+unknown/unsupported. Selecting the ChatGPT app's Codex CLI 0.160.0 through
+`providers.codex.command` allowed that same model to complete the probe.
+
+With installed Teeplug 0.4.1 and Codex 0.160.0, an approved live check using the
+affected project's settings passed both workflows on tiny synthetic temporary files:
+
+| Workflow | Model | Verification | Input/output tokens |
+| --- | --- | --- | ---: |
+| Reader | gpt-5.6-luna | Uncached answer contains expected value and file citation | 3,463 / 40 |
+| Writer | gpt-6.1-sol | Complete file written; Python AST matches requested function | 5,476 / 32 |
+
+All 102 plugin unit tests, the four changed skill validators, JSON manifest checks,
+and Claude's native plugin validator passed. Codex installed the 0.4.1 manifest
+successfully. Synthetic checks sent no project source, and no raw worker logs were
+returned. This verifies the installed scripts with normal approved execution;
+it does not claim an unapproved sandbox call or every future chat invocation succeeds.
+
+## Historical validation (0.3.x)
+
 Validated locally on 2026-09-14 UTC with Python 3.14.5, Codex CLI 0.153.4 and
 Claude Code 2.1.227. Runtime targets Python 3.10+ on macOS/Linux; Windows process
 group handling is not implemented.
